@@ -1,0 +1,134 @@
+use std::cmp::max;
+
+const N: usize = 101000;
+
+struct SuffixArray {
+    s: Vec<u8>,
+    sa: Vec<usize>,
+    rk: Vec<usize>,
+    ht: Vec<usize>,
+    n: usize,
+}
+
+impl SuffixArray {
+    fn new(input: &str) -> Self {
+        let mut s = input.as_bytes().to_vec();
+        let n = s.len();
+        s.push(0); // 额外的 0 作为终止符
+        let mut sa = vec![0; n + 1];
+        let mut rk = vec![0; n + 1];
+        let mut ht = vec![0; n + 1];
+
+        let mut suffix_array = Self { s, sa, rk, ht, n };
+        suffix_array.build_sa();
+        suffix_array
+    }
+
+    fn build_sa(&mut self) {
+        let n = self.n;
+        let m = 128;
+        let mut x = vec![0; n + 1];
+        let mut y = vec![0; n + 1];
+        let mut c = vec![0; m];
+
+        // 初始化计数
+        for &ch in &self.s[..n] {
+            c[ch as usize] += 1;
+        }
+        for i in 1..m {
+            c[i] += c[i - 1];
+        }
+        for i in (0..n).rev() {
+            c[self.s[i] as usize] -= 1;
+            self.sa[c[self.s[i] as usize]] = i;
+        }
+        for i in 0..n {
+            x[self.sa[i]] = self.s[self.sa[i]] as usize;
+        }
+
+        let mut p = 1;
+        let mut k = 1;
+        while p < n {
+            p = 0;
+            for i in (n - k..n).rev() {
+                y[p] = i;
+                p += 1;
+            }
+            for &i in &self.sa {
+                if i >= k {
+                    y[p] = i - k;
+                    p += 1;
+                }
+            }
+
+            c.fill(0);
+            for &i in &x[..n] {
+                c[i] += 1;
+            }
+            for i in 1..m {
+                c[i] += c[i - 1];
+            }
+            for i in (0..n).rev() {
+                c[x[y[i]]] -= 1;
+                self.sa[c[x[y[i]]]] = y[i];
+            }
+
+            std::mem::swap(&mut x, &mut y);
+            x[self.sa[0]] = 0;
+            p = 1;
+
+            for i in 1..n {
+                if y[self.sa[i - 1]] == y[self.sa[i]]
+                    && y[self.sa[i - 1] + k] == y[self.sa[i] + k]
+                {
+                    x[self.sa[i]] = p - 1;
+                } else {
+                    x[self.sa[i]] = p;
+                    p += 1;
+                }
+            }
+
+            if p == n {
+                break;
+            }
+            k <<= 1;
+        }
+
+        for i in 0..n {
+            self.rk[self.sa[i]] = i;
+        }
+
+        let mut k = 0;
+        for i in 0..n {
+            if self.rk[i] == 0 {
+                continue;
+            }
+            if k > 0 {
+                k -= 1;
+            }
+            let j = self.sa[self.rk[i] - 1];
+            while i + k < n && j + k < n && self.s[i + k] == self.s[j + k] {
+                k += 1;
+            }
+            self.ht[self.rk[i]] = k;
+        }
+    }
+
+    fn lcp(&self, u: usize, v: usize) -> usize {
+        if u == v {
+            return self.n - u;
+        }
+        let (u, v) = if self.rk[u] < self.rk[v] { (u, v) } else { (v, u) };
+        *self.ht[self.rk[u] + 1..self.rk[v] + 1].iter().min().unwrap()
+    }
+}
+
+fn main() {
+    let text = "banana";
+    let sa = SuffixArray::new(text);
+
+    println!("Suffix Array: {:?}", sa.sa);
+    println!("Rank Array: {:?}", sa.rk);
+    println!("LCP Array: {:?}", sa.ht);
+    println!("LCP(banana, nana): {}", sa.lcp(0, 2));
+}
