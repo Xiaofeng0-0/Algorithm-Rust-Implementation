@@ -1,0 +1,133 @@
+const MO: i64 = 998244353;
+const FFTN: usize = 1 << 18;
+const N: usize = FFTN + 5;
+
+type Poly = Vec<i64>;
+
+struct FFT {
+    w: Vec<i64>,
+    r: Vec<usize>,
+    p: Vec<u128>,
+}
+
+impl FFT {
+    fn new() -> Self {
+        let mut w = vec![0; N];
+        let mut r = vec![0; N];
+        let mut p = vec![0; N];
+
+        w[0] = 1;
+        w[1] = FFT::power(3, (MO - 1) / FFTN);
+        for i in 2..N {
+            w[i] = w[i - 1] * w[1] % MO;
+        }
+
+        Self { w, r, p }
+    }
+
+    fn power(mut x: i64, mut y: i64) -> i64 {
+        let mut res = 1;
+        while y > 0 {
+            if y % 2 == 1 {
+                res = (res * x) % MO;
+            }
+            x = (x * x) % MO;
+            y /= 2;
+        }
+        res
+    }
+
+    fn fft_init(&mut self, n: usize) -> usize {
+        let mut l = 1;
+        while l <= n {
+            l <<= 1;
+        }
+        for i in 0..l {
+            self.r[i] = (self.r[i >> 1] >> 1) | ((i & 1) * (l >> 1));
+        }
+        l
+    }
+
+    fn dft(&mut self, a: &mut Vec<i64>, n: usize) {
+        for i in 0..n {
+            self.p[self.r[i]] = a[i] as u128;
+        }
+        let mut d = 1;
+        while d < n {
+            let len = FFTN / (d << 1);
+            let mut w = vec![0; d];
+            for i in 0..d {
+                w[i] = self.w[i * len];
+            }
+            for i in (0..n).step_by(d << 1) {
+                for j in 0..d {
+                    let y = (self.p[i + j + d] as i64 * w[j]) % MO;
+                    self.p[i + j + d] = (self.p[i + j] + MO as u128 - y as u128) % MO as u128;
+                    self.p[i + j] = (self.p[i + j] + y as u128) % MO as u128;
+                }
+            }
+            d <<= 1;
+        }
+        for i in 0..n {
+            a[i] = (self.p[i] % MO as u128) as i64;
+        }
+    }
+
+    fn idft(&mut self, a: &mut Vec<i64>, n: usize) {
+        for i in 0..n {
+            self.p[self.r[i]] = a[i] as u128;
+        }
+        let mut d = 1;
+        while d < n {
+            let len = FFTN / (d << 1);
+            let mut w = vec![0; d];
+            for i in 0..d {
+                w[i] = self.w[FFTN - i * len];
+            }
+            for i in (0..n).step_by(d << 1) {
+                for j in 0..d {
+                    let y = (self.p[i + j + d] as i64 * w[j]) % MO;
+                    self.p[i + j + d] = (self.p[i + j] + MO as u128 - y as u128) % MO as u128;
+                    self.p[i + j] = (self.p[i + j] + y as u128) % MO as u128;
+                }
+            }
+            d <<= 1;
+        }
+        let inv_n = FFT::power(n as i64, MO - 2);
+        for i in 0..n {
+            a[i] = (self.p[i] as i64 * inv_n) % MO;
+        }
+    }
+
+    fn multiply(&mut self, mut a: Poly, mut b: Poly) -> Poly {
+        let sz_a = a.len();
+        let sz_b = b.len();
+        let l = self.fft_init(sz_a + sz_b - 1);
+
+        a.resize(l, 0);
+        b.resize(l, 0);
+
+        self.dft(&mut a, l);
+        self.dft(&mut b, l);
+
+        for i in 0..l {
+            a[i] = (a[i] * b[i]) % MO;
+        }
+
+        self.idft(&mut a, l);
+
+        a.truncate(sz_a + sz_b - 1);
+        a
+    }
+}
+
+fn main() {
+    let mut fft = FFT::new();
+
+    let a: Poly = vec![1, 2, 3, 4];
+    let b: Poly = vec![5, 6, 7, 8];
+
+    let result = fft.multiply(a, b);
+
+    println!("Polynomial Multiplication Result: {:?}", result);
+}
