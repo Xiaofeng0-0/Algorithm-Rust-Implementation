@@ -1,0 +1,67 @@
+use std::cmp::{min, max};
+use std::io::{self, Write};
+use std::collections::*;
+use rand::{Rng, SeedableRng};
+use rand::rngs::StdRng;
+
+const MOD: i64 = 1_000_000_007;
+
+fn rnd(x: i32) -> i32 {
+    let mut rng = StdRng::from_entropy();
+    rng.gen_range(0..x)
+}
+
+fn powmod(mut a: i64, mut b: i64, mod_: i64) -> i64 {
+    let mut res = 1;
+    a %= mod_;
+    assert!(b >= 0);
+    while b > 0 {
+        if b & 1 == 1 {
+            res = res * a % mod_;
+        }
+        a = a * a % mod_;
+        b >>= 1;
+    }
+    res
+}
+
+fn gcd(a: i64, b: i64) -> i64 {
+    if b == 0 { a } else { gcd(b, a % b) }
+}
+
+fn chkmin<T: Ord>(x: &mut T, y: T) {
+    *x = min(*x, y);
+}
+
+fn chkmax<T: Ord>(x: &mut T, y: T) {
+    *x = max(*x, y);
+}
+
+fn add<T: Into<i64>>(x: &mut i64, y: T) {
+    *x += y.into();
+    if *x >= MOD {
+        *x -= MOD;
+    }
+}
+
+fn sub<T: Into<i64>>(x: &mut i64, y: T) {
+    *x -= y.into();
+    if *x < 0 {
+        *x += MOD;
+    }
+}
+
+fn solve() {
+    // to solve a single test case
+}
+
+fn main() {
+    let mut stdout = io::stdout();
+    let _ = stdout.flush();
+
+    let tt = 1; // 固定测试次数
+
+    for _ in 0..tt {
+        solve();
+    }
+}
