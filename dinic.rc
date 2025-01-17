@@ -1,0 +1,140 @@
+use std::collections::VecDeque;
+use std::cmp::min;
+
+const V: usize = 20100;
+const E: usize = 201000;
+const INF: i64 = 1 << 60; // 设定较大的数作为 INF
+
+#[derive(Clone, Copy)]
+struct Edge {
+    v: usize,
+    nxt: isize,
+    f: i64,
+}
+
+struct FlowGraph {
+    s: usize,
+    t: usize,
+    vtot: usize,
+    head: Vec<isize>,
+    etot: usize,
+    dis: Vec<i64>,
+    cur: Vec<isize>,
+    e: Vec<Edge>,
+}
+
+impl FlowGraph {
+    fn new(vtot: usize) -> Self {
+        Self {
+            s: 0,
+            t: 0,
+            vtot,
+            head: vec![-1; vtot + 1], // 确保 head 长度合适
+            etot: 0,
+            dis: vec![0; vtot + 1],
+            cur: vec![0; vtot + 1],
+            e: Vec::with_capacity(E * 2),
+        }
+    }
+
+    fn add_edge(&mut self, u: usize, v: usize, f: i64, f2: i64) {
+        self.e.push(Edge { v, nxt: self.head[u], f });
+        self.head[u] = self.etot as isize;
+        self.etot += 1;
+
+        self.e.push(Edge { v: u, nxt: self.head[v], f: f2 });
+        self.head[v] = self.etot as isize;
+        self.etot += 1;
+    }
+
+    fn bfs(&mut self) -> bool {
+        self.dis.fill(0);
+        self.cur.clone_from_slice(&self.head);
+
+        let mut q = VecDeque::new();
+        q.push_back(self.s);
+        self.dis[self.s] = 1;
+
+        while let Some(u) = q.pop_front() {
+            let mut i = self.head[u];
+            while i != -1 {
+                let e_idx = i as usize;
+                if e_idx >= self.e.len() { break; } // 避免溢出
+                let edge = self.e[e_idx];
+
+                if edge.f > 0 && self.dis[edge.v] == 0 {
+                    self.dis[edge.v] = self.dis[u] + 1;
+                    if edge.v == self.t {
+                        return true;
+                    }
+                    q.push_back(edge.v);
+                }
+                i = self.e[e_idx].nxt;
+            }
+        }
+        false
+    }
+
+    fn dfs(&mut self, u: usize, mut m: i64) -> i64 {
+        if u == self.t {
+            return m;
+        }
+        let mut flow = 0;
+        let mut i = self.cur[u];
+
+        while i != -1 {
+            self.cur[u] = i;
+            let e_idx = i as usize;
+            if e_idx >= self.e.len() { break; } // 避免溢出
+            let v = self.e[e_idx].v;
+            let f = self.e[e_idx].f;
+
+            if f > 0 && self.dis[v] == self.dis[u] + 1 {
+                let pushed = self.dfs(v, min(m, f));
+                self.e[e_idx].f -= pushed;
+                self.e[e_idx ^ 1].f += pushed;
+                m -= pushed;
+                flow += pushed;
+                if m == 0 {
+                    break;
+                }
+            }
+
+            i = self.e[e_idx].nxt;
+        }
+
+        if flow == 0 {
+            self.dis[u] = -1;
+        }
+        flow
+    }
+
+    fn dinic(&mut self) -> i64 {
+        let mut flow = 0;
+        while self.bfs() {
+            flow += self.dfs(self.s, INF);
+        }
+        flow
+    }
+
+    fn init(&mut self, s: usize, t: usize, vtot: usize) {
+        self.s = s;
+        self.t = t;
+        self.vtot = vtot;
+        self.etot = 0;
+        self.head.fill(-1);
+    }
+}
+
+fn main() {
+    let mut graph = FlowGraph::new(20); // 设定适当的点数
+    graph.init(1, 10, 20); // 1 是源点，10 是汇点，20 是总点数
+
+    // 添加边
+    graph.add_edge(1, 2, 5, 0);
+    graph.add_edge(2, 10, 7, 0);
+
+    // 计算最大流
+    let max_flow = graph.dinic();
+    println!("Maximum Flow: {}", max_flow);
+}
