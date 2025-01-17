@@ -1,0 +1,136 @@
+use std::cmp::max;
+
+const N: usize = 201000;
+
+#[derive(Clone, Copy, Default)]
+struct Info {
+    maxv: i64,
+}
+
+#[derive(Clone, Copy, Default)]
+struct Tag {
+    add: i64,
+}
+
+// 运算符重载的实现
+impl std::ops::Add for Info {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        Self {
+            maxv: max(self.maxv, rhs.maxv),
+        }
+    }
+}
+
+impl std::ops::Add<Tag> for Info {
+    type Output = Self;
+    fn add(self, rhs: Tag) -> Self {
+        Self {
+            maxv: self.maxv + rhs.add,
+        }
+    }
+}
+
+impl std::ops::Add for Tag {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        Self {
+            add: self.add + rhs.add,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Default)]
+struct Node {
+    t: Tag,
+    val: Info,
+}
+
+struct SegmentTree {
+    seg: Vec<Node>,
+    a: Vec<i64>,
+}
+
+impl SegmentTree {
+    fn new(n: usize) -> Self {
+        Self {
+            seg: vec![Node::default(); 4 * n],
+            a: vec![0; n],
+        }
+    }
+
+    fn update(&mut self, id: usize) {
+        self.seg[id].val = self.seg[id * 2].val + self.seg[id * 2 + 1].val;
+    }
+
+    fn set_tag(&mut self, id: usize, t: Tag) {
+        self.seg[id].val = self.seg[id].val + t;
+        self.seg[id].t = self.seg[id].t + t;
+    }
+
+    fn push_down(&mut self, id: usize) {
+        if self.seg[id].t.add != 0 {
+            self.set_tag(id * 2, self.seg[id].t);
+            self.set_tag(id * 2 + 1, self.seg[id].t);
+            self.seg[id].t.add = 0;
+        }
+    }
+
+    fn build(&mut self, id: usize, l: usize, r: usize) {
+        if l == r {
+            self.seg[id].val = Info { maxv: self.a[l] };
+        } else {
+            let mid = (l + r) / 2;
+            self.build(id * 2, l, mid);
+            self.build(id * 2 + 1, mid + 1, r);
+            self.update(id);
+        }
+    }
+
+    fn change(&mut self, id: usize, l: usize, r: usize, pos: usize, val: i64) {
+        if l == r {
+            self.seg[id].val = Info { maxv: val };
+        } else {
+            let mid = (l + r) / 2;
+            if pos <= mid {
+                self.change(id * 2, l, mid, pos, val);
+            } else {
+                self.change(id * 2 + 1, mid + 1, r, pos, val);
+            }
+            self.update(id);
+        }
+    }
+
+    fn modify(&mut self, id: usize, l: usize, r: usize, ql: usize, qr: usize, t: Tag) {
+        if l == ql && r == qr {
+            self.set_tag(id, t);
+            return;
+        }
+        let mid = (l + r) / 2;
+        self.push_down(id);
+        if qr <= mid {
+            self.modify(id * 2, l, mid, ql, qr, t);
+        } else if ql > mid {
+            self.modify(id * 2 + 1, mid + 1, r, ql, qr, t);
+        } else {
+            self.modify(id * 2, l, mid, ql, mid, t);
+            self.modify(id * 2 + 1, mid + 1, r, mid + 1, qr, t);
+        }
+        self.update(id);
+    }
+
+    fn query(&mut self, id: usize, l: usize, r: usize, ql: usize, qr: usize) -> Info {
+        if l == ql && r == qr {
+            return self.seg[id].val;
+        }
+        let mid = (l + r) / 2;
+        self.push_down(id);
+        if qr <= mid {
+            self.query(id * 2, l, mid, ql, qr)
+        } else if ql > mid {
+            self.query(id * 2 + 1, mid + 1, r, ql, qr)
+        } else {
+            self.query(id * 2, l, mid, ql, mid) + self.query(id * 2 + 1, mid + 1, r, mid + 1, qr)
+        }
+    }
+}
